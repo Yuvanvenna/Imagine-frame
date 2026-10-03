@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Sparkles,
   Zap,
@@ -7,15 +7,17 @@ import {
   Sliders,
   CheckCircle2,
   AlertCircle,
-  Cpu,
   Layers,
-  Flame,
+  PenTool,
+  UploadCloud,
 } from 'lucide-react';
 import { Uploader } from './components/Uploader';
+import { CanvasDrawer } from './components/CanvasDrawer';
 import { LivePreview } from './components/LivePreview';
 import { CodeViewer } from './components/CodeViewer';
 
 type StylePreset = 'modern' | 'cyberpunk' | 'minimalist';
+type InputMode = 'draw' | 'upload';
 
 interface StyleOption {
   id: StylePreset;
@@ -50,38 +52,17 @@ const STYLE_OPTIONS: StyleOption[] = [
 ];
 
 export const App: React.FC = () => {
+  const [inputMode, setInputMode] = useState<InputMode>('draw');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [activeStyle, setActiveStyle] = useState<StylePreset>('modern');
   const [generatedCode, setGeneratedCode] = useState<string>('');
-  const [modelUsed, setModelUsed] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'preview' | 'code'>('preview');
-  const [serverOnline, setServerOnline] = useState<boolean | null>(null);
-
-  // Check backend server health on mount
-  useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        const res = await fetch('http://localhost:8000/api/health');
-        if (res.ok) {
-          const data = await res.json();
-          setServerOnline(true);
-          setModelUsed(data.target_model || 'gemma-4-26b-a4b-it');
-        } else {
-          setServerOnline(false);
-        }
-      } catch {
-        setServerOnline(false);
-      }
-    };
-    checkHealth();
-  }, []);
 
   const handleLoadSample = async () => {
     setPreviewUrl('/sample_wireframe.png');
-    // Fetch file as blob to populate selectedFile
     try {
       const response = await fetch('/sample_wireframe.png');
       const blob = await response.blob();
@@ -92,36 +73,15 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleLoadBackupInstantly = async () => {
-    setIsLoading(true);
+  const handleCanvasExport = (file: File, dataUrl: string) => {
+    setSelectedFile(file);
+    setPreviewUrl(dataUrl);
     setErrorMessage(null);
-    try {
-      const res = await fetch(`http://localhost:8000/api/backup-sample?style=${activeStyle}`);
-      const data = await res.json();
-      setGeneratedCode(data.code);
-      setModelUsed(data.model);
-      setActiveView('preview');
-    } catch {
-      // In case server fails, fallback in frontend directly
-      setGeneratedCode(
-        `<div class="min-h-screen bg-slate-900 text-slate-100 p-8 flex items-center justify-center">
-          <div class="max-w-xl p-8 bg-slate-800 rounded-2xl border border-slate-700 shadow-xl text-center space-y-4">
-            <h2 class="text-2xl font-bold text-white">Wire2React Demo Component</h2>
-            <p class="text-sm text-slate-400">Rendered via Gemma 4 Multimodal Synthesis Engine</p>
-            <button class="px-6 py-2.5 bg-indigo-600 rounded-xl font-medium text-white shadow-lg shadow-indigo-500/30">Explore Demo</button>
-          </div>
-        </div>`
-      );
-      setModelUsed('backup-local-cache');
-      setActiveView('preview');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleGenerate = async () => {
     if (!selectedFile && !previewUrl) {
-      setErrorMessage('Please select or drop a wireframe image first, or use a sample.');
+      setErrorMessage('Please sketch or upload a wireframe first, or use a sample sketch.');
       return;
     }
 
@@ -147,7 +107,6 @@ export const App: React.FC = () => {
 
       const data = await res.json();
       setGeneratedCode(data.code);
-      setModelUsed(data.model);
       setActiveView('preview');
     } catch (err: any) {
       console.error(err);
@@ -168,77 +127,74 @@ export const App: React.FC = () => {
               <Zap className="w-5 h-5 text-white" />
             </div>
             <div>
-              <div className="flex items-center space-x-2">
-                <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent">
-                  Wire2React
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 flex items-center gap-1">
-                  <Flame className="w-2.5 h-2.5 text-amber-400" />
-                  Hacktoberfest 2026
-                </span>
-              </div>
+              <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent">
+                Wire2React
+              </span>
               <p className="text-[11px] text-slate-400">Sketch to React with Gemma 4</p>
             </div>
-          </div>
-
-          {/* Model & Backend Status */}
-          <div className="flex items-center space-x-3">
-            <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs">
-              <Cpu className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="text-slate-400 font-mono">Model:</span>
-              <span className="font-semibold text-slate-200 font-mono">gemma-4-26b-a4b-it</span>
-            </div>
-
-            <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  serverOnline ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'
-                }`}
-              ></span>
-              <span className="text-slate-300">
-                {serverOnline ? 'FastAPI Ready' : 'Backend Offline'}
-              </span>
-            </div>
-
-            {/* Instant Fail-Safe Demo Button */}
-            <button
-              onClick={handleLoadBackupInstantly}
-              disabled={isLoading}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all hover:scale-105 shadow-sm"
-              title="Instant 1-click demo without network delay"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Instant Judge Demo</span>
-            </button>
           </div>
         </div>
       </header>
 
       {/* Main Workspace Layout */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Control Column (Width 4/12) */}
+        {/* Left Control Column (Width 5/12) */}
         <div className="lg:col-span-5 flex flex-col space-y-6">
-          {/* Section: Upload Wireframe */}
+          {/* Section: Wireframe Input Mode (Draw vs Upload) */}
           <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-md shadow-xl space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Layers className="w-4 h-4 text-indigo-400" />
-                <h2 className="text-sm font-semibold text-slate-200">1. Wireframe Sketch</h2>
+                <h2 className="text-sm font-semibold text-slate-200">1. Wireframe Input</h2>
               </div>
-              <span className="text-xs text-slate-500">Visual Input</span>
+
+              {/* Segmented Mode Switcher */}
+              <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setInputMode('draw')}
+                  className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                    inputMode === 'draw'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Interactive Whiteboard Draw Mode"
+                >
+                  <PenTool className="w-3.5 h-3.5" />
+                  <span>Draw</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInputMode('upload')}
+                  className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                    inputMode === 'upload'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Upload / Drop existing image"
+                >
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  <span>Upload</span>
+                </button>
+              </div>
             </div>
 
-            <Uploader
-              selectedFile={selectedFile}
-              previewUrl={previewUrl}
-              onFileSelect={(file, url) => {
-                setSelectedFile(file);
-                setPreviewUrl(url);
-                setErrorMessage(null);
-              }}
-              onLoadSample={handleLoadSample}
-              disabled={isLoading}
-            />
+            {/* Active Mode Body */}
+            {inputMode === 'draw' ? (
+              <CanvasDrawer onCanvasExport={handleCanvasExport} disabled={isLoading} />
+            ) : (
+              <Uploader
+                selectedFile={selectedFile}
+                previewUrl={previewUrl}
+                onFileSelect={(file, url) => {
+                  setSelectedFile(file);
+                  setPreviewUrl(url);
+                  setErrorMessage(null);
+                }}
+                onLoadSample={handleLoadSample}
+                disabled={isLoading}
+              />
+            )}
           </div>
 
           {/* Section: Style Selector */}
@@ -337,13 +293,6 @@ export const App: React.FC = () => {
                 <span>JSX / Markup</span>
               </button>
             </div>
-
-            {modelUsed && (
-              <div className="text-[11px] text-slate-400 font-mono flex items-center space-x-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
-                <span>Synthesized via: {modelUsed}</span>
-              </div>
-            )}
           </div>
 
           {/* Render Active View Container */}
@@ -351,7 +300,7 @@ export const App: React.FC = () => {
             {activeView === 'preview' ? (
               <LivePreview code={generatedCode} isLoading={isLoading} />
             ) : (
-              <CodeViewer code={generatedCode} modelUsed={modelUsed} styleName={activeStyle} />
+              <CodeViewer code={generatedCode} styleName={activeStyle} />
             )}
           </div>
         </div>

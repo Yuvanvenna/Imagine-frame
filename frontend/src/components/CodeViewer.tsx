@@ -3,11 +3,10 @@ import { Copy, Check, Download, Code2 } from 'lucide-react';
 
 interface CodeViewerProps {
   code: string;
-  modelUsed?: string;
   styleName?: string;
 }
 
-export const CodeViewer: React.FC<CodeViewerProps> = ({ code, modelUsed, styleName }) => {
+export const CodeViewer: React.FC<CodeViewerProps> = ({ code, styleName }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -47,11 +46,6 @@ export const CodeViewer: React.FC<CodeViewerProps> = ({ code, modelUsed, styleNa
         <div className="flex items-center space-x-2">
           <Code2 className="w-4 h-4 text-indigo-400" />
           <span className="text-xs font-semibold text-slate-300">Generated Markup</span>
-          {modelUsed && (
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-              {modelUsed}
-            </span>
-          )}
         </div>
 
         <div className="flex items-center space-x-2">
