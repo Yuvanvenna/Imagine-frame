@@ -1,0 +1,54 @@
+# Wire2React — System Architecture & Build Guide
+
+## 1. Challenge & Event Target
+- **Event:** Hacktoberfest Hack Day • Hyderabad (MLH × DEV × React Hyderabad)
+- **Track:** Best Use of Gemma 4 (2-Hour Hack Day Challenge)
+- **Core Requirements:**
+  - Meaningfully use Gemma 4 through the Gemini API (`google-genai` SDK).
+  - Multimodal image-to-useful-output (wireframe/napkin sketch -> live UI).
+  - Obvious result within the first 30 seconds of the judge demo.
+  - Fail-safe backup sample ready to bypass network/API glitches.
+
+---
+
+## 2. Product Specification
+- **Product Name:** Wire2React
+- **Core Hook:** Developers and designers draw a rough UI sketch on paper, upload or drag it in, and Gemma 4 immediately generates clean, interactive, and styled React/Tailwind code rendered in an isolated live preview.
+- **Key Features:**
+  - Drag-and-drop wireframe image upload (PNG, JPG, WEBP).
+  - Preset style switcher: Modern Clean (Slate), Dark Cyberpunk, Minimalist.
+  - Sandbox live rendering via `iframe srcDoc` using Tailwind CSS CDN.
+  - Fail-safe "Load Backup Sample" button for an instant demo without waiting for network or uploads.
+  - 1-click code viewer with syntax copying.
+
+---
+
+## 3. Tech Stack & Ports
+- **Frontend:** React 18+ (Vite + TypeScript + Tailwind CSS + Lucide Icons) running on `http://localhost:5173`.
+- **Backend:** FastAPI (Python 3.10+) running on `http://localhost:8000`.
+- **AI SDK:** `google-genai` (Official Google GenAI SDK).
+- **Target Model Endpoint:** `gemma-4-26b-a4b-it` (Fallback: `gemma-4-31b-it`).
+- **Secrets Management:** Reads `GEMINI_API_KEY` from the system environment.
+
+---
+
+## 4. Repository Structure to Scaffold
+
+```text
+wire2react/
+├── PROJECT_CONTEXT.md
+├── backend/
+│   ├── requirements.txt
+│   ├── test_gemma.py
+│   └── main.py
+└── frontend/
+    ├── package.json
+    ├── vite.config.ts
+    ├── tailwind.config.js
+    ├── postcss.config.js
+    ├── index.html
+    └── src/
+        ├── App.tsx
+        ├── index.css
+        └── main.tsx
+```
