@@ -5,49 +5,47 @@ import {
   Code,
   Eye,
   Sliders,
-  CheckCircle2,
   AlertCircle,
   Layers,
   PenTool,
   UploadCloud,
+  Camera,
 } from 'lucide-react';
 import { Uploader } from './components/Uploader';
 import { CanvasDrawer } from './components/CanvasDrawer';
+import { CameraSnap } from './components/CameraSnap';
 import { LivePreview } from './components/LivePreview';
 import { CodeViewer } from './components/CodeViewer';
 
-type StylePreset = 'modern' | 'cyberpunk' | 'minimalist';
-type InputMode = 'draw' | 'upload';
+export type StylePreset = 'shadcn' | 'tailwind' | 'material' | 'cyberpunk';
+export type InputMode = 'draw' | 'snap' | 'upload';
 
 interface StyleOption {
   id: StylePreset;
   name: string;
   tagline: string;
-  badgeClass: string;
-  borderClass: string;
 }
 
 const STYLE_OPTIONS: StyleOption[] = [
   {
-    id: 'modern',
-    name: 'Modern Clean',
-    tagline: 'Slate & Indigo soft palette',
-    badgeClass: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
-    borderClass: 'border-indigo-500/50 bg-indigo-500/10',
+    id: 'shadcn',
+    name: 'Shadcn/UI Modern',
+    tagline: 'Dark zinc & subtle focus rings',
+  },
+  {
+    id: 'tailwind',
+    name: 'Tailwind Clean',
+    tagline: 'Slate & vibrant indigo gradients',
+  },
+  {
+    id: 'material',
+    name: 'Material Accent',
+    tagline: 'Emerald & teal elevations',
   },
   {
     id: 'cyberpunk',
     name: 'Dark Cyberpunk',
-    tagline: 'Neon cyan & fuchsia accents',
-    badgeClass: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
-    borderClass: 'border-cyan-500/50 bg-cyan-500/10',
-  },
-  {
-    id: 'minimalist',
-    name: 'Minimalist',
-    tagline: 'Monochrome stark contrast',
-    badgeClass: 'bg-slate-500/10 text-slate-300 border-slate-500/30',
-    borderClass: 'border-slate-400/50 bg-slate-500/10',
+    tagline: 'Neon cyan & fuchsia glow',
   },
 ];
 
@@ -55,33 +53,72 @@ export const App: React.FC = () => {
   const [inputMode, setInputMode] = useState<InputMode>('draw');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [activeStyle, setActiveStyle] = useState<StylePreset>('modern');
+  const [detectedSampleType, setDetectedSampleType] = useState<'napkin' | 'whiteboard' | 'card'>('napkin');
+  const [activeStyle, setActiveStyle] = useState<StylePreset>('shadcn');
   const [generatedCode, setGeneratedCode] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'preview' | 'code'>('preview');
 
-  const handleLoadSample = async () => {
-    setPreviewUrl('/sample_wireframe.png');
+  const handleLoadSample = async (sampleType: 'napkin' | 'whiteboard' | 'card' = 'napkin') => {
+    const sampleMap = {
+      napkin: { path: '/napkin_login.jpg', name: 'napkin_login.jpg', type: 'image/jpeg' },
+      whiteboard: { path: '/whiteboard_saas.jpg', name: 'whiteboard_saas.jpg', type: 'image/jpeg' },
+      card: { path: '/sample_wireframe.png', name: 'sample_wireframe.png', type: 'image/png' },
+    };
+
+    const selected = sampleMap[sampleType] || sampleMap.napkin;
+    setPreviewUrl(selected.path);
+    setDetectedSampleType(sampleType);
+    setInputMode('upload');
+
     try {
-      const response = await fetch('/sample_wireframe.png');
+      const response = await fetch(selected.path);
       const blob = await response.blob();
-      const file = new File([blob], 'sample_wireframe.png', { type: 'image/png' });
+      const file = new File([blob], selected.name, { type: selected.type });
       setSelectedFile(file);
+      setErrorMessage(null);
     } catch {
-      // previewUrl is still set
+      // previewUrl is still valid
     }
   };
 
   const handleCanvasExport = (file: File, dataUrl: string) => {
     setSelectedFile(file);
     setPreviewUrl(dataUrl);
+    setDetectedSampleType('card');
     setErrorMessage(null);
+  };
+
+  const handleCameraCapture = (file: File, dataUrl: string) => {
+    setSelectedFile(file);
+    setPreviewUrl(dataUrl);
+    setDetectedSampleType('napkin');
+    setErrorMessage(null);
+  };
+
+  const handleQuickDemo = async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(`http://localhost:8000/api/backup-sample?sample_type=napkin&style=${activeStyle}`);
+      const data = await res.json();
+      setGeneratedCode(data.code);
+      setIntentAnalysis(data.intent_analysis);
+      setPreviewUrl('/napkin_login.jpg');
+      setInputMode('upload');
+      setActiveView('preview');
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage('Could not load instant demo sample.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGenerate = async () => {
     if (!selectedFile && !previewUrl) {
-      setErrorMessage('Please sketch or upload a wireframe first, or use a sample sketch.');
+      setErrorMessage('Please sketch, snap, or upload a wireframe first, or use a 1-click sample benchmark.');
       return;
     }
 
@@ -93,6 +130,7 @@ export const App: React.FC = () => {
       formData.append('file', selectedFile);
     }
     formData.append('style', activeStyle);
+    formData.append('sample_type', detectedSampleType);
 
     try {
       const res = await fetch('http://localhost:8000/api/convert', {
@@ -107,6 +145,9 @@ export const App: React.FC = () => {
 
       const data = await res.json();
       setGeneratedCode(data.code);
+      if (data.intent_analysis) {
+        setIntentAnalysis(data.intent_analysis);
+      }
       setActiveView('preview');
     } catch (err: any) {
       console.error(err);
@@ -120,7 +161,7 @@ export const App: React.FC = () => {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased">
       {/* Navigation Header */}
       <header className="sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo & Hackathon Tag */}
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
@@ -130,30 +171,43 @@ export const App: React.FC = () => {
               <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent">
                 Wire2React
               </span>
-              <p className="text-[11px] text-slate-400">Sketch to React with Gemma 4</p>
+              <p className="text-[11px] text-slate-400">Gemma 4 Intent Synthesis • React Hyderabad Track</p>
             </div>
+          </div>
+
+          {/* Quick Demo Trigger (Zero-Setup Fail-Safe) */}
+          <div className="flex items-center space-x-3">
+            <button
+              type="button"
+              onClick={handleQuickDemo}
+              disabled={isLoading}
+              className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold shadow-sm transition-all flex items-center space-x-1.5 hover:scale-[1.02]"
+              title="Instant zero-latency judge demonstration"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Instant Benchmark Demo</span>
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Main Workspace Layout */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Control Column (Width 5/12) */}
-        <div className="lg:col-span-5 flex flex-col space-y-6">
-          {/* Section: Wireframe Input Mode (Draw vs Upload) */}
-          <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-md shadow-xl space-y-4">
+      {/* Main Workspace Layout (50/50 Split Screen) */}
+      <main className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-4 flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        {/* Left Column: Drawing & Input Workspace (50% Width) */}
+        <div className="flex flex-col space-y-4 h-full">
+          <div className="p-4 sm:p-5 rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-md shadow-xl flex flex-col space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Layers className="w-4 h-4 text-indigo-400" />
-                <h2 className="text-sm font-semibold text-slate-200">1. Wireframe Input</h2>
+                <h2 className="text-sm font-semibold text-slate-200">Wireframe Input</h2>
               </div>
 
-              {/* Segmented Mode Switcher */}
+              {/* 3-Mode Switcher: Draw | Snap (Camera) | Upload */}
               <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
                 <button
                   type="button"
                   onClick={() => setInputMode('draw')}
-                  className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     inputMode === 'draw'
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'text-slate-400 hover:text-slate-200'
@@ -165,96 +219,98 @@ export const App: React.FC = () => {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setInputMode('snap')}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    inputMode === 'snap'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Snap Physical Napkin / Whiteboard with Camera"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Snap (Camera)</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setInputMode('upload')}
-                  className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     inputMode === 'upload'
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
-                  title="Upload / Drop existing image"
+                  title="Upload / Drop file or use Benchmark Napkins"
                 >
                   <UploadCloud className="w-3.5 h-3.5" />
-                  <span>Upload</span>
+                  <span>Upload / Samples</span>
                 </button>
               </div>
             </div>
 
-            {/* Active Mode Body */}
-            {inputMode === 'draw' ? (
-              <CanvasDrawer onCanvasExport={handleCanvasExport} disabled={isLoading} />
-            ) : (
-              <Uploader
-                selectedFile={selectedFile}
-                previewUrl={previewUrl}
-                onFileSelect={(file, url) => {
-                  setSelectedFile(file);
-                  setPreviewUrl(url);
-                  setErrorMessage(null);
-                }}
-                onLoadSample={handleLoadSample}
-                disabled={isLoading}
-              />
-            )}
-          </div>
-
-          {/* Section: Style Selector */}
-          <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-md shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Sliders className="w-4 h-4 text-indigo-400" />
-                <h2 className="text-sm font-semibold text-slate-200">2. Preset Style Switcher</h2>
-              </div>
-              <span className="text-xs text-slate-500 font-mono">Tailwind Theme</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-2.5">
-              {STYLE_OPTIONS.map((style) => (
-                <button
-                  key={style.id}
-                  onClick={() => setActiveStyle(style.id)}
-                  disabled={isLoading}
-                  className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
-                    activeStyle === style.id
-                      ? style.borderClass
-                      : 'border-slate-800 hover:border-slate-700 bg-slate-900/40 hover:bg-slate-900/70'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs font-semibold text-slate-200">{style.name}</span>
-                      {activeStyle === style.id && (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-0.5">{style.tagline}</p>
-                  </div>
-                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${style.badgeClass}`}>
-                    {style.id}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Action Trigger */}
-          <div className="space-y-3">
-            <button
-              onClick={handleGenerate}
-              disabled={isLoading || (!selectedFile && !previewUrl)}
-              className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-sm shadow-xl shadow-indigo-600/30 disabled:opacity-40 disabled:pointer-events-none transition-all duration-200 flex items-center justify-center space-x-2 group hover:scale-[1.01]"
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                  <span>Synthesizing with Gemma 4...</span>
-                </>
+            {/* Active Workspace View */}
+            <div className="w-full">
+              {inputMode === 'draw' ? (
+                <CanvasDrawer onCanvasExport={handleCanvasExport} disabled={isLoading} />
+              ) : inputMode === 'snap' ? (
+                <CameraSnap onCapture={handleCameraCapture} disabled={isLoading} />
               ) : (
-                <>
-                  <Sparkles className="w-4 h-4 text-indigo-200 group-hover:rotate-12 transition-transform" />
-                  <span>Synthesize Live React Component</span>
-                </>
+                <Uploader
+                  selectedFile={selectedFile}
+                  previewUrl={previewUrl}
+                  onFileSelect={(file, url) => {
+                    setSelectedFile(file);
+                    setPreviewUrl(url);
+                    setErrorMessage(null);
+                  }}
+                  onLoadSample={handleLoadSample}
+                  disabled={isLoading}
+                />
               )}
-            </button>
+            </div>
+
+            {/* Bottom Controls: Design System Adapter + Synthesize Button */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-800/80">
+              <div className="flex items-center space-x-2">
+                <Sliders className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <span className="text-xs font-medium text-slate-400">Design System:</span>
+                <div className="flex items-center space-x-1 bg-slate-950 p-1 rounded-xl border border-slate-800 overflow-x-auto">
+                  {STYLE_OPTIONS.map((style) => (
+                    <button
+                      key={style.id}
+                      type="button"
+                      onClick={() => setActiveStyle(style.id)}
+                      disabled={isLoading}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+                        activeStyle === style.id
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                      title={style.tagline}
+                    >
+                      {style.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Trigger */}
+              <button
+                onClick={handleGenerate}
+                disabled={isLoading || (!selectedFile && !previewUrl)}
+                className="py-2.5 px-6 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/30 disabled:opacity-40 disabled:pointer-events-none transition-all duration-200 flex items-center justify-center space-x-2 group hover:scale-[1.01]"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                    <span>Gemma 4 is Inferring Intent...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-200 group-hover:rotate-12 transition-transform" />
+                    <span>Synthesize Live React UI</span>
+                  </>
+                )}
+              </button>
+            </div>
 
             {errorMessage && (
               <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start space-x-2">
@@ -265,9 +321,9 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Output Column (Width 7/12) */}
-        <div className="lg:col-span-7 flex flex-col space-y-4">
-          {/* View Tab Toggle */}
+        {/* Right Output Column (50% Width) */}
+        <div className="flex flex-col space-y-4 h-full">
+          {/* View Tab Toggle: Live Sandbox | Intent Architecture | JSX / Markup */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 bg-slate-900 p-1 rounded-xl border border-slate-800">
               <button
@@ -280,6 +336,17 @@ export const App: React.FC = () => {
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Live Sandbox</span>
+              </button>
+              <button
+                onClick={() => setActiveView('intent')}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  activeView === 'intent'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Brain className="w-3.5 h-3.5" />
+                <span>Intent Architecture</span>
               </button>
               <button
                 onClick={() => setActiveView('code')}
@@ -296,9 +363,11 @@ export const App: React.FC = () => {
           </div>
 
           {/* Render Active View Container */}
-          <div className="flex-1 min-h-[580px]">
+          <div className="flex-1 min-h-[640px] sm:min-h-[700px] lg:min-h-[760px]">
             {activeView === 'preview' ? (
               <LivePreview code={generatedCode} isLoading={isLoading} />
+            ) : activeView === 'intent' ? (
+              <IntentInspector styleName={activeStyle} code={generatedCode} analysis={intentAnalysis} />
             ) : (
               <CodeViewer code={generatedCode} styleName={activeStyle} />
             )}

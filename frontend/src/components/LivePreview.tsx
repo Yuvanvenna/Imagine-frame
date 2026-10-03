@@ -11,12 +11,33 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ code, isLoading }) => 
   const [refreshKey, setRefreshKey] = useState(0);
 
   const srcDoc = useMemo(() => {
+    let cleanHtml = (code || '').trim();
+
+    // Strip markdown code block fences if any slipped through
+    if (cleanHtml.startsWith('```')) {
+      cleanHtml = cleanHtml.replace(/^```[a-zA-Z]*\n?/gm, '').replace(/```$/gm, '').trim();
+    }
+
+    // Convert React className to HTML class so Tailwind CDN works
+    cleanHtml = cleanHtml.replace(/\bclassName=/g, 'class=');
+
+    // Remove React event handlers and JSX arrow functions that leak text in standard HTML
+    cleanHtml = cleanHtml.replace(/\s*on[A-Z][a-zA-Z]*=\{[^}]*\}/g, '');
+    cleanHtml = cleanHtml.replace(/\(?e\)?\s*=>\s*e\.preventDefault\(\)\s*\}?>?/g, '');
+    cleanHtml = cleanHtml.replace(/\be\.preventDefault\(\)[^<]*/g, '');
+
+    // Convert JSX curly-bracket attributes like value={"test"} to value="test"
+    cleanHtml = cleanHtml.replace(/=\{([^{}]+)\}/g, '="$1"');
+
+    const renderedBody = cleanHtml || '<div class="flex items-center justify-center min-h-screen text-slate-500 font-mono text-sm">Awaiting Wireframe Generation...</div>';
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -30,7 +51,15 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ code, isLoading }) => 
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
-  ${code || '<div class="flex items-center justify-center min-h-screen text-slate-500 font-mono text-sm">Awaiting Wireframe Generation...</div>'}
+  ${renderedBody}
+  <script>
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+    window.addEventListener('load', () => {
+      if (window.lucide) window.lucide.createIcons();
+    });
+  </script>
 </body>
 </html>`;
   }, [code, refreshKey]);

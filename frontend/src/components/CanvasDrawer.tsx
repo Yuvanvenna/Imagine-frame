@@ -29,20 +29,25 @@ const INK_COLORS = [
 ];
 
 const BRUSH_SIZES = [
-  { label: 'Fine', value: 2 },
-  { label: 'Medium', value: 4 },
-  { label: 'Bold', value: 8 },
+  { label: 'Fine', value: 3 },
+  { label: 'Medium', value: 6 },
+  { label: 'Bold', value: 12 },
 ];
 
 export const CanvasDrawer: React.FC<CanvasDrawerProps> = ({ onCanvasExport, disabled }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const [activeTool, setActiveTool] = useState<DrawTool>('pen');
   const [activeColor, setActiveColor] = useState<string>('#1e293b');
-  const [brushSize, setBrushSize] = useState<number>(4);
+  const [brushSize, setBrushSize] = useState<number>(6);
   const [showGrid, setShowGrid] = useState<boolean>(true);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
   const [startX, setStartX] = useState<number>(0);
   const [startY, setStartY] = useState<number>(0);
+
+  // High-visibility cursor tracking
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
 
   // Undo / Redo history
   const [history, setHistory] = useState<ImageData[]>([]);
@@ -79,7 +84,7 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = ({ onCanvasExport, disa
     const currentData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const newHistory = history.slice(0, historyStep + 1);
     newHistory.push(currentData);
-    if (newHistory.length > 25) newHistory.shift(); // limit history size
+    if (newHistory.length > 30) newHistory.shift(); // limit history size
 
     setHistory(newHistory);
     setHistoryStep(newHistory.length - 1);
@@ -138,7 +143,7 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = ({ onCanvasExport, disa
     saveStateToHistory();
   };
 
-  // Get coordinates relative to canvas
+  // Get coordinates relative to canvas internal resolution
   const getCoordinates = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -149,6 +154,16 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = ({ onCanvasExport, disa
       x: (e.clientX - rect.left) * scaleX,
       y: (e.clientY - rect.top) * scaleY,
     };
+  };
+
+  const updateCursorPosition = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    setCursorPos({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -163,6 +178,7 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = ({ onCanvasExport, disa
     setIsDrawing(true);
     setStartX(x);
     setStartY(y);
+    updateCursorPosition(e);
 
     snapshotRef.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
@@ -187,6 +203,7 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = ({ onCanvasExport, disa
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    updateCursorPosition(e);
     if (!isDrawing || disabled) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -210,7 +227,6 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = ({ onCanvasExport, disa
       ctx.lineTo(x, y);
       ctx.stroke();
     } else if (snapshotRef.current) {
-      // Shape preview: restore snapshot before drawing preview shape
       ctx.putImageData(snapshotRef.current, 0, 0);
       ctx.strokeStyle = activeColor;
       ctx.lineWidth = brushSize;
@@ -262,10 +278,13 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = ({ onCanvasExport, disa
     a.click();
   };
 
+  // Ultra-visible dual-tone SVG cursor: thick black border, bright white core, colored center
+  const customCursorStyle = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath stroke='%23000000' stroke-width='4' stroke-linecap='round' d='M14 2v24M2 14h24'/%3E%3Cpath stroke='%23ffffff' stroke-width='2' stroke-linecap='round' d='M14 2v24M2 14h24'/%3E%3Ccircle cx='14' cy='14' r='4.5' fill='%236366f1' stroke='%23000000' stroke-width='1.5'/%3E%3C/svg%3E") 14 14, crosshair`;
+
   return (
-    <div className="flex flex-col space-y-3">
+    <div className="flex flex-col space-y-3 h-full">
       {/* Drawing Controls Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs shadow-md">
         {/* Tool selectors */}
         <div className="flex items-center space-x-1 bg-slate-950 p-1 rounded-lg border border-slate-800/80">
           <button
@@ -325,7 +344,7 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = ({ onCanvasExport, disa
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
             }`}
-            title="Circle / Oval (Avatars / Icons)"
+            title="Circle / Oval (Avatars / Badges)"
           >
             <Circle className="w-4 h-4" />
           </button>
@@ -359,9 +378,9 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = ({ onCanvasExport, disa
               key={size.value}
               type="button"
               onClick={() => setBrushSize(size.value)}
-              className={`px-2 py-1 rounded-md text-[10px] font-medium transition-all ${
+              className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
                 brushSize === size.value
-                  ? 'bg-slate-800 text-indigo-400 font-bold'
+                  ? 'bg-slate-800 text-indigo-400 font-bold shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -377,7 +396,7 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = ({ onCanvasExport, disa
             onClick={handleUndo}
             disabled={historyStep <= 0}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 disabled:opacity-30 transition-colors"
-            title="Undo"
+            title="Undo (Ctrl+Z)"
           >
             <Undo2 className="w-4 h-4" />
           </button>
@@ -421,35 +440,84 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = ({ onCanvasExport, disa
         </div>
       </div>
 
-      {/* Drawing Canvas Board */}
-      <div className="relative rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl bg-white select-none">
+      {/* Expansive Drawing Canvas Board (Takes full height) */}
+      <div
+        ref={containerRef}
+        className="relative rounded-2xl overflow-hidden border-2 border-slate-700/80 shadow-2xl bg-white select-none flex-1 min-h-[520px] sm:min-h-[580px] lg:min-h-[640px]"
+        onPointerLeave={() => setCursorPos(null)}
+      >
         {/* Subtle Engineering Dot Grid Overlay */}
         {showGrid && (
           <div
             className="absolute inset-0 pointer-events-none opacity-[0.25]"
             style={{
-              backgroundImage: 'radial-gradient(#64748b 1px, transparent 1px)',
-              backgroundSize: '20px 20px',
+              backgroundImage: 'radial-gradient(#475569 1.5px, transparent 1.5px)',
+              backgroundSize: '24px 24px',
             }}
           />
         )}
 
+        {/* High-Resolution Drawing Canvas */}
         <canvas
           ref={canvasRef}
-          width={800}
-          height={560}
+          width={1400}
+          height={920}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className="w-full h-[360px] sm:h-[400px] cursor-crosshair touch-none block"
-          style={{ imageRendering: 'crisp-edges' }}
+          onPointerEnter={updateCursorPosition}
+          className="w-full h-full touch-none block"
+          style={{
+            cursor: customCursorStyle,
+            imageRendering: 'crisp-edges',
+          }}
         />
 
-        {/* Floating Canvas Footer Badge */}
-        <div className="absolute bottom-2.5 right-3 pointer-events-none flex items-center space-x-2 bg-slate-900/85 backdrop-blur-md px-2.5 py-1 rounded-full border border-slate-700/80 text-[10px] text-slate-300">
+        {/* Interactive Brush Reticle Overlay (Always 100% visible) */}
+        {cursorPos && (
+          <div
+            className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 transition-none"
+            style={{
+              left: `${cursorPos.x}px`,
+              top: `${cursorPos.y}px`,
+            }}
+          >
+            {activeTool === 'pen' ? (
+              <div
+                className="rounded-full border-2 border-slate-950 ring-2 ring-white shadow-xl flex items-center justify-center"
+                style={{
+                  width: `${Math.max(brushSize * 2.2, 12)}px`,
+                  height: `${Math.max(brushSize * 2.2, 12)}px`,
+                  backgroundColor: `${activeColor}40`,
+                }}
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-slate-950 ring-1 ring-white" />
+              </div>
+            ) : activeTool === 'eraser' ? (
+              <div
+                className="rounded-lg border-2 border-rose-600 bg-rose-500/25 ring-2 ring-white shadow-xl flex items-center justify-center"
+                style={{
+                  width: `${brushSize * 4}px`,
+                  height: `${brushSize * 4}px`,
+                }}
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-rose-600 ring-1 ring-white" />
+              </div>
+            ) : (
+              <div className="relative w-6 h-6 flex items-center justify-center">
+                <div className="w-full h-[2px] bg-slate-950 ring-1 ring-white shadow-sm" />
+                <div className="h-full w-[2px] bg-slate-950 ring-1 ring-white shadow-sm absolute" />
+                <div className="w-2 h-2 rounded-full border border-slate-950 bg-indigo-500 ring-1 ring-white absolute" />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Floating Canvas Status Badge */}
+        <div className="absolute bottom-3 right-3 pointer-events-none flex items-center space-x-2 bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-700/80 text-xs text-slate-300 shadow-lg">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Interactive Sketch Active</span>
+          <span className="font-medium">Interactive Canvas (1400×920)</span>
         </div>
       </div>
     </div>
