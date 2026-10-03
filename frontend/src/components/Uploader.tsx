@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { UploadCloud, Image as ImageIcon, Sparkles, X, Coffee, Presentation, LayoutGrid } from 'lucide-react';
+import { UploadCloud, Image as ImageIcon, X, Coffee, Presentation, LayoutGrid } from 'lucide-react';
 
 interface UploaderProps {
   selectedFile: File | null;

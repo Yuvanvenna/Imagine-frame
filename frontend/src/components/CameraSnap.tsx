@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Camera, RefreshCw, AlertCircle, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Camera, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface CameraSnapProps {
   onCapture: (file: File, dataUrl: string) => void;

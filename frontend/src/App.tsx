@@ -104,7 +104,6 @@ export const App: React.FC = () => {
       const res = await fetch(`http://localhost:8000/api/backup-sample?sample_type=napkin&style=${activeStyle}`);
       const data = await res.json();
       setGeneratedCode(data.code);
-      setIntentAnalysis(data.intent_analysis);
       setPreviewUrl('/napkin_login.jpg');
       setInputMode('upload');
       setActiveView('preview');
@@ -145,9 +144,6 @@ export const App: React.FC = () => {
 
       const data = await res.json();
       setGeneratedCode(data.code);
-      if (data.intent_analysis) {
-        setIntentAnalysis(data.intent_analysis);
-      }
       setActiveView('preview');
     } catch (err: any) {
       console.error(err);
@@ -323,7 +319,7 @@ export const App: React.FC = () => {
 
         {/* Right Output Column (50% Width) */}
         <div className="flex flex-col space-y-4 h-full">
-          {/* View Tab Toggle: Live Sandbox | Intent Architecture | JSX / Markup */}
+          {/* View Tab Toggle: Live Sandbox | JSX / Markup */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 bg-slate-900 p-1 rounded-xl border border-slate-800">
               <button
@@ -336,17 +332,6 @@ export const App: React.FC = () => {
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Live Sandbox</span>
-              </button>
-              <button
-                onClick={() => setActiveView('intent')}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  activeView === 'intent'
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Brain className="w-3.5 h-3.5" />
-                <span>Intent Architecture</span>
               </button>
               <button
                 onClick={() => setActiveView('code')}
@@ -366,8 +351,6 @@ export const App: React.FC = () => {
           <div className="flex-1 min-h-[640px] sm:min-h-[700px] lg:min-h-[760px]">
             {activeView === 'preview' ? (
               <LivePreview code={generatedCode} isLoading={isLoading} />
-            ) : activeView === 'intent' ? (
-              <IntentInspector styleName={activeStyle} code={generatedCode} analysis={intentAnalysis} />
             ) : (
               <CodeViewer code={generatedCode} styleName={activeStyle} />
             )}
