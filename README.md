@@ -13,6 +13,8 @@ terminal 2:
 1.cd frontend
 2.npm install
 3.npm run dev
+
+
 **for developer**
 backend: .\backend\venv\Scripts\python -m uvicorn backend.main:app --reload --port 8000
 frontend: npm run dev
