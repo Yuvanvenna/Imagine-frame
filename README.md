@@ -15,9 +15,10 @@ terminal 2:
 3.npm run dev
 
 
-**for developer**
+**@for developer@@@@**
 backend: .\backend\venv\Scripts\python -m uvicorn backend.main:app --reload --port 8000
-frontend: npm run dev
+&&&&&frontend: npm --prefix frontend run dev
+
 
 # ImagineFrame (Wire2React)
 
