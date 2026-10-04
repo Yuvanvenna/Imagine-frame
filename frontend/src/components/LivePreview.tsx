@@ -1,13 +1,33 @@
 import React, { useMemo, useState } from 'react';
-import { Monitor, Tablet, Smartphone, RotateCcw, ExternalLink } from 'lucide-react';
+import {
+  Monitor,
+  Tablet,
+  Smartphone,
+  RotateCcw,
+  ExternalLink,
+  Maximize2,
+  Minimize2,
+  Sun,
+  Moon,
+  Sparkles,
+} from 'lucide-react';
 
 interface LivePreviewProps {
   code: string;
   isLoading?: boolean;
+  isStreaming?: boolean;
+  streamingSnippet?: string;
 }
 
-export const LivePreview: React.FC<LivePreviewProps> = ({ code, isLoading }) => {
+export const LivePreview: React.FC<LivePreviewProps> = ({
+  code,
+  isLoading,
+  isStreaming,
+  streamingSnippet,
+}) => {
   const [device, setDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [themeBackdrop, setThemeBackdrop] = useState<'dark' | 'light'>('dark');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const srcDoc = useMemo(() => {
@@ -29,7 +49,14 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ code, isLoading }) => 
     // Convert JSX curly-bracket attributes like value={"test"} to value="test"
     cleanHtml = cleanHtml.replace(/=\{([^{}]+)\}/g, '="$1"');
 
-    const renderedBody = cleanHtml || '<div class="flex items-center justify-center min-h-screen text-slate-500 font-mono text-sm">Awaiting Wireframe Generation...</div>';
+    // Prevent any runaway location.reload scripts
+    cleanHtml = cleanHtml.replace(/location\.reload\(\)/gi, 'void(0)');
+
+    const renderedBody =
+      cleanHtml ||
+      '<div class="flex items-center justify-center min-h-screen text-slate-500 font-mono text-sm">Awaiting Wireframe Generation...</div>';
+
+    const bodyBgClass = themeBackdrop === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900';
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -47,10 +74,16 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ code, isLoading }) => 
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Safeguard: Prevent whole containers or pages from blinking */
+    body > .animate-pulse,
+    body > div > .animate-pulse {
+      animation-duration: 4s !important;
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen">
+<body class="${bodyBgClass} min-h-screen transition-colors duration-200">
   ${renderedBody}
   <script>
     if (window.lucide) {
@@ -62,7 +95,7 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ code, isLoading }) => 
   </script>
 </body>
 </html>`;
-  }, [code, refreshKey]);
+  }, [code, refreshKey, themeBackdrop]);
 
   const deviceWidthClass = {
     desktop: 'w-full',
@@ -76,10 +109,16 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ code, isLoading }) => 
     window.open(url, '_blank');
   };
 
+  const isBusy = isLoading || isStreaming;
+
   return (
-    <div className="flex flex-col h-full rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden shadow-2xl backdrop-blur-md">
+    <div
+      className={`flex flex-col h-full rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden shadow-2xl backdrop-blur-md ${
+        isFullscreen ? 'fixed inset-0 z-50 rounded-none bg-slate-950' : ''
+      }`}
+    >
       {/* Top toolbar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/80 bg-slate-950/70">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-800/80 bg-slate-950/70">
         <div className="flex items-center space-x-2">
           <div className="flex space-x-1.5 mr-2">
             <div className="w-3 h-3 rounded-full bg-rose-500/80"></div>
@@ -90,24 +129,31 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ code, isLoading }) => 
           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
             Tailwind CDN
           </span>
+          {isStreaming && (
+            <span className="inline-flex items-center space-x-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+              <span>Streaming Gemma 4 Tokens...</span>
+            </span>
+          )}
         </div>
 
         {/* Viewport switcher */}
         <div className="flex items-center space-x-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
           <button
             onClick={() => setDevice('desktop')}
-            className={`p-1.5 rounded-lg text-xs transition-colors ${
+            className={`p-1.5 rounded-lg text-xs transition-colors flex items-center space-x-1 ${
               device === 'desktop'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
-            title="Desktop View"
+            title="Desktop View (100% Fluid)"
           >
             <Monitor className="w-3.5 h-3.5" />
+            <span className="text-[10px] hidden sm:inline">Desktop</span>
           </button>
           <button
             onClick={() => setDevice('tablet')}
-            className={`p-1.5 rounded-lg text-xs transition-colors ${
+            className={`p-1.5 rounded-lg text-xs transition-colors flex items-center space-x-1 ${
               device === 'tablet'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
@@ -115,10 +161,11 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ code, isLoading }) => 
             title="Tablet View (768px)"
           >
             <Tablet className="w-3.5 h-3.5" />
+            <span className="text-[10px] hidden sm:inline">768px</span>
           </button>
           <button
             onClick={() => setDevice('mobile')}
-            className={`p-1.5 rounded-lg text-xs transition-colors ${
+            className={`p-1.5 rounded-lg text-xs transition-colors flex items-center space-x-1 ${
               device === 'mobile'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
@@ -126,15 +173,30 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ code, isLoading }) => 
             title="Mobile View (375px)"
           >
             <Smartphone className="w-3.5 h-3.5" />
+            <span className="text-[10px] hidden sm:inline">375px</span>
           </button>
         </div>
 
         {/* Actions */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1.5">
+          {/* Backdrop theme switch */}
+          <button
+            type="button"
+            onClick={() => setThemeBackdrop((t) => (t === 'dark' ? 'light' : 'dark'))}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+            title={`Switch to ${themeBackdrop === 'dark' ? 'Light' : 'Dark'} Sandbox Backdrop`}
+          >
+            {themeBackdrop === 'dark' ? (
+              <Sun className="w-3.5 h-3.5 text-amber-400" />
+            ) : (
+              <Moon className="w-3.5 h-3.5 text-indigo-400" />
+            )}
+          </button>
+
           <button
             onClick={() => setRefreshKey((k) => k + 1)}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-            title="Reload Sandbox"
+            title="Reset Micro-App State"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
@@ -146,33 +208,69 @@ export const LivePreview: React.FC<LivePreviewProps> = ({ code, isLoading }) => 
           >
             <ExternalLink className="w-3.5 h-3.5" />
           </button>
+          <button
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen Presentation'}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-3.5 h-3.5 text-indigo-400" />
+            ) : (
+              <Maximize2 className="w-3.5 h-3.5" />
+            )}
+          </button>
         </div>
       </div>
 
       {/* Frame Container */}
-      <div className="relative flex-1 bg-slate-950/80 p-4 flex items-center justify-center overflow-auto min-h-[480px]">
-        {isLoading && (
-          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center space-y-4">
-            <div className="relative w-12 h-12">
+      <div
+        className={`relative flex-1 p-4 flex items-center justify-center overflow-auto min-h-[480px] transition-colors ${
+          themeBackdrop === 'dark' ? 'bg-slate-950/90' : 'bg-slate-200/90'
+        }`}
+      >
+        {/* Steady, High-Tech Generation HUD (Keeps iframe static without blinking) */}
+        {isBusy && (
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center space-y-4">
+            <div className="relative w-14 h-14">
               <div className="absolute inset-0 rounded-full border-2 border-indigo-500/20"></div>
               <div className="absolute inset-0 rounded-full border-2 border-t-indigo-500 animate-spin"></div>
+              <div className="absolute inset-2 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/40">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-sm font-semibold text-white">Gemma 4 is synthesizing UI...</p>
-              <p className="text-xs text-indigo-400 font-mono mt-1">Applying visual reasoning & Tailwind rules</p>
+            <div className="space-y-1 max-w-md">
+              <h3 className="text-sm font-semibold text-white tracking-tight">
+                Gemma 4 is Synthesizing UI...
+              </h3>
+              <p className="text-xs text-slate-400">
+                Recognizing visual elements, brand semantics, and assembling production components
+              </p>
             </div>
+            {streamingSnippet && (
+              <div className="w-full max-w-md p-3 rounded-xl bg-slate-900/95 border border-slate-800 text-left font-mono text-[11px] text-indigo-300 overflow-hidden shadow-2xl">
+                <div className="flex items-center space-x-1.5 text-slate-500 text-[10px] uppercase tracking-wider mb-1.5 border-b border-slate-800/80 pb-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>Synthesizing Markup Tokens</span>
+                </div>
+                <div className="truncate opacity-80">
+                  {streamingSnippet.slice(-120)}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         <div
-          className={`${deviceWidthClass} h-full transition-all duration-300 rounded-xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-900 flex`}
+          className={`${deviceWidthClass} h-full transition-all duration-300 rounded-xl overflow-hidden shadow-2xl border ${
+            themeBackdrop === 'dark' ? 'border-slate-800 bg-slate-900' : 'border-slate-300 bg-white'
+          } flex`}
         >
           <iframe
             key={refreshKey}
             srcDoc={srcDoc}
             title="Live Wireframe Render"
-            className="w-full h-full border-0 rounded-xl bg-slate-950"
-            sandbox="allow-scripts"
+            className="w-full h-full border-0 rounded-xl bg-transparent"
+            sandbox="allow-scripts allow-modals"
           />
         </div>
       </div>

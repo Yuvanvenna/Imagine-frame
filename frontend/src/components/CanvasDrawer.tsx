@@ -11,6 +11,11 @@ import {
   Grid3X3,
   Download,
   Palette,
+  Stamp,
+  Layout,
+  CreditCard,
+  User,
+  TrendingUp,
 } from 'lucide-react';
 
 export type DrawTool = 'pen' | 'eraser' | 'rectangle' | 'line' | 'circle';
@@ -140,6 +145,133 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = ({ onCanvasExport, disa
 
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    saveStateToHistory();
+  };
+
+  const stampStencil = (type: 'navbar' | 'button' | 'input' | 'card' | 'avatar' | 'metric') => {
+    if (disabled) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.save();
+    ctx.strokeStyle = activeColor;
+    ctx.fillStyle = activeColor;
+    ctx.lineWidth = brushSize > 3 ? brushSize : 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.font = 'bold 15px "Plus Jakarta Sans", sans-serif';
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    if (type === 'navbar') {
+      const topY = 40;
+      const w = canvas.width - 100;
+      const x = 50;
+      ctx.strokeRect(x, topY, w, 56);
+      ctx.strokeRect(x + 20, topY + 12, 32, 32);
+      ctx.fillText('LOGO', x + 65, topY + 34);
+      ctx.font = '13px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText('Home    Features    Docs    Pricing', x + 160, topY + 34);
+      const btnW = 90;
+      const btnX = x + w - btnW - 20;
+      ctx.strokeRect(btnX, topY + 12, btnW, 32);
+      ctx.fillText('Sign In', btnX + 22, topY + 33);
+    } else if (type === 'button') {
+      const w = 180;
+      const h = 48;
+      const x = cx - w / 2;
+      const y = cy - h / 2;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(x, y, w, h, 12);
+      } else {
+        ctx.strokeRect(x, y, w, h);
+      }
+      ctx.stroke();
+      ctx.fillText('✦  Click Action', x + 35, y + 29);
+    } else if (type === 'input') {
+      const w = 320;
+      const h = 50;
+      const x = cx - w / 2;
+      const y = cy - h / 2;
+      ctx.font = '13px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText('Email Address', x, y - 10);
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(x, y, w, h, 10);
+      } else {
+        ctx.strokeRect(x, y, w, h);
+      }
+      ctx.stroke();
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('name@company.com', x + 20, y + 30);
+    } else if (type === 'card') {
+      const w = 300;
+      const h = 340;
+      const x = cx - w / 2;
+      const y = cy - h / 2;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(x, y, w, h, 16);
+      } else {
+        ctx.strokeRect(x, y, w, h);
+      }
+      ctx.stroke();
+      ctx.strokeRect(x + 16, y + 16, w - 32, 130);
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('[ Image / Graphic ]', x + 80, y + 85);
+      ctx.fillStyle = activeColor;
+      ctx.font = 'bold 16px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText('Feature Header', x + 20, y + 180);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + 20, y + 205);
+      ctx.lineTo(x + w - 40, y + 205);
+      ctx.moveTo(x + 20, y + 225);
+      ctx.lineTo(x + w - 70, y + 225);
+      ctx.stroke();
+      ctx.strokeRect(x + 20, y + 265, w - 40, 42);
+      ctx.fillText('Learn More →', x + 85, y + 292);
+    } else if (type === 'avatar') {
+      const r = 36;
+      ctx.beginPath();
+      ctx.arc(cx, cy - 10, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy - 18, 14, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy + 22, 24, Math.PI * 1.1, Math.PI * 1.9);
+      ctx.stroke();
+      ctx.font = '12px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText('User Profile', cx - 32, cy + 50);
+    } else if (type === 'metric') {
+      const w = 240;
+      const h = 130;
+      const x = cx - w / 2;
+      const y = cy - h / 2;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(x, y, w, h, 14);
+      } else {
+        ctx.strokeRect(x, y, w, h);
+      }
+      ctx.stroke();
+      ctx.font = '12px "Plus Jakarta Sans", sans-serif';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('TOTAL REVENUE', x + 20, y + 32);
+      ctx.fillStyle = activeColor;
+      ctx.font = 'bold 26px "Plus Jakarta Sans", sans-serif';
+      ctx.fillText('$48,250', x + 20, y + 70);
+      ctx.font = 'bold 12px "Plus Jakarta Sans", sans-serif';
+      ctx.fillStyle = '#10b981';
+      ctx.fillText('▲ +14.8% vs last month', x + 20, y + 102);
+    }
+
+    ctx.restore();
     saveStateToHistory();
   };
 
@@ -438,6 +570,74 @@ export const CanvasDrawer: React.FC<CanvasDrawerProps> = ({ onCanvasExport, disa
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
+      </div>
+
+      {/* Quick UI Stencils & Stamps Toolbar */}
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-xs shadow-md">
+        <div className="flex items-center space-x-1.5 mr-1 text-slate-400 font-medium">
+          <Stamp className="w-3.5 h-3.5 text-indigo-400" />
+          <span className="text-[11px]">Wireframe Stencils:</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => stampStencil('navbar')}
+          disabled={disabled}
+          className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-[11px] font-medium transition-all hover:scale-[1.02]"
+          title="Stamp Navbar Header"
+        >
+          <Layout className="w-3 h-3 text-indigo-400" />
+          <span>+ Navbar</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => stampStencil('card')}
+          disabled={disabled}
+          className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-[11px] font-medium transition-all hover:scale-[1.02]"
+          title="Stamp Feature Card"
+        >
+          <CreditCard className="w-3 h-3 text-indigo-400" />
+          <span>+ Card</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => stampStencil('button')}
+          disabled={disabled}
+          className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-[11px] font-medium transition-all hover:scale-[1.02]"
+          title="Stamp CTA Button"
+        >
+          <span className="text-indigo-400 font-bold text-xs">[ ]</span>
+          <span>+ Button</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => stampStencil('input')}
+          disabled={disabled}
+          className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-[11px] font-medium transition-all hover:scale-[1.02]"
+          title="Stamp Form Input Box"
+        >
+          <span className="text-indigo-400 font-bold text-xs">⌨</span>
+          <span>+ Input</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => stampStencil('avatar')}
+          disabled={disabled}
+          className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-[11px] font-medium transition-all hover:scale-[1.02]"
+          title="Stamp User Avatar"
+        >
+          <User className="w-3 h-3 text-indigo-400" />
+          <span>+ Avatar</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => stampStencil('metric')}
+          disabled={disabled}
+          className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-[11px] font-medium transition-all hover:scale-[1.02]"
+          title="Stamp Metric Stat Card"
+        >
+          <TrendingUp className="w-3 h-3 text-emerald-400" />
+          <span>+ Metric</span>
+        </button>
       </div>
 
       {/* Expansive Drawing Canvas Board (Takes full height) */}

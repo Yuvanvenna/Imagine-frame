@@ -11,10 +11,12 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
+import json
+import asyncio
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from PIL import Image
 
 # Load environment variables
@@ -497,6 +499,60 @@ def get_backup_sample(sample_type: str = "napkin", style: str = "shadcn"):
     }
 
 
+def build_sketch_prompt(style: str) -> str:
+    style_instruction = STYLE_PROMPTS.get(style, STYLE_PROMPTS["shadcn"])
+    return f"""You are an elite, highly perceptive Frontend Architect implementing the Wire2React multimodal sketch-to-UI engine for the React Hyderabad track.
+The user provided a hand-drawn sketch, napkin doodle, or whiteboard wireframe.
+
+Your goal is to ACCURATELY READ THE SKETCH, INFER REAL-WORLD INTENT, and elevate it into a stunning, production-ready, interactive web UI component:
+
+1. ACCURATE TEXT & BRAND RECOGNITION (CRITICAL - DO NOT HALLUCINATE):
+   - Transcribe all handwritten letters, text, and titles EXACTLY as written.
+   - DO NOT alter, autocorrect, or autocomplete text into generic software jargon!
+     * Example: If the user wrote "AUDI", it is the luxury automotive brand "Audi", NOT "Audit" or "AuditCore"!
+     * Example: If the user wrote "NIKE", it is "Nike", NOT "Notice" or "Network"!
+     * Example: If the user wrote "APPLE", it is "Apple", NOT "Application"!
+     * Example: If the user wrote "TESLA", it is "Tesla", NOT "Testing"!
+   - Recognize iconic logos, marks, and drawings:
+     * 4 interlocking horizontal rings = Audi car logo.
+     * 3-pointed star = Mercedes-Benz logo.
+     * Checkmark swoosh = Nike logo.
+     * Stylized T or geometric badge = Automotive / Tech mark.
+     * Magnifying glass = Search input.
+     * Shopping cart / bag = E-commerce checkout.
+   - Detect the domain from the sketch:
+     * Automotive / Car Brand (e.g., Audi, BMW, Porsche): Design a gorgeous, premium automotive showcase hero/card with vehicle imagery, model specs (e.g. Quattro, Horsepower, 0-60 mph, e-tron electric), "Book Test Drive", "Configure Model", and luxury dark aesthetics.
+     * E-Commerce / Retail: Product showcase, price tags, ratings, "Add to Cart" button.
+     * SaaS / Tool: Clean metrics, navigation bar, actionable controls.
+     * Media / Music: Player controls, album art, playlist cards.
+     * Landing Page / Hero: Bold typography, clear value prop, primary & secondary CTAs.
+   - DO NOT force every sketch into a SaaS compliance dashboard! Honor the real subject matter of what the user drew!
+
+2. ARCHITECTURE & INTENT INFERENCE:
+   - Treat the sketch as an architectural blueprint: parallel lines and rectangular boxes mean clean, responsive flexbox/grid containers with modern spacing (p-6, gap-4).
+   - Inject accessible attributes: aria-labels, focus rings (focus:ring-2 focus:ring-indigo-500), proper input types (type="email", type="password"), and responsive wrapping.
+   - Scope discipline: Faithfully elevate the components present in the sketch into a clean, modern card, hero, or page.
+
+3. DESIGN SYSTEM ADAPTER ({style}):
+   - Map onto designated token conventions:
+     {style_instruction}
+   - Use standard HTML5 syntax with class="..." (NEVER className=).
+   - Use Lucide icon tags where appropriate: <i data-lucide="car"></i>, <i data-lucide="shield"></i>, <i data-lucide="arrow-right"></i>, <i data-lucide="search"></i>, etc.
+   - For images or vehicle photos, use high quality Unsplash placeholders (e.g. https://images.unsplash.com/photo-1603584173870-7f23fdae1b7a?auto=format&fit=crop&w=800&q=80 for Audi/luxury cars).
+
+4. REAL-TIME INTERACTION SIMULATION (NO BLINKING / NO SCREEN FLICKER):
+   - Include a concise, self-contained inline <script> at the bottom.
+   - Wire up click/submit events with showToast(message) feedback so buttons trigger real interactive feedback.
+   - CRITICAL STABILITY RULE: DO NOT use continuous blinking animations like animate-pulse or animate-ping across cards, text, or full containers (only subtle pulse on a tiny 2x2 status indicator is allowed).
+   - CRITICAL: DO NOT use setInterval, setTimeout loops, or location.reload() in scripts that cause the screen to flicker or continuously reload.
+   - Call if (window.lucide) window.lucide.createIcons(); in the script.
+
+5. OUTPUT FORMAT:
+   - Pure, self-contained HTML starting with <div class="min-h-screen... and ending with </div>.
+   - Do NOT wrap in markdown fences (no ```html). No commentary.
+"""
+
+
 @app.post("/api/convert")
 async def convert_wireframe(
     file: Optional[UploadFile] = File(None),
@@ -533,37 +589,7 @@ async def convert_wireframe(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid image file: {str(e)}")
 
-    style_instruction = STYLE_PROMPTS.get(style, STYLE_PROMPTS["shadcn"])
-
-    prompt = f"""You are an opinionated Principal Frontend Architect implementing the Wire2React wireframe-to-UI engine for the React Hyderabad track.
-The user provided a rough, imperfect napkin sketch or whiteboard drawing.
-
-DO NOT attempt to literally copy sloppy hand-drawn lines, crooked borders, or tremors. Instead, INFER INTENT and elevate it into a production-grade component:
-
-1. ARCHITECTURE & INTENT INFERENCE (Infer & Synthesize):
-   - Treat the sketch as an architectural blueprint: parallel scribbles mean clean flex/grid containers with modern spacing (p-6, gap-4).
-   - Inject accessible form attributes: aria-labels, focus rings (focus:ring-2 focus:ring-indigo-500), proper input types (type="email", type="password"), and responsive wrapping that hand sketches never include.
-   - SCOPE DISCIPLINE: Faithfully elevate the components present in the sketch. If the sketch depicts only a single button (e.g. "SUBMIT"), elevate that button into a hero call-to-action component with icons and glow. If it depicts a card grid, form, or dashboard, map those exact components.
-
-2. DESIGN SYSTEM ADAPTER ({style}):
-   - Map the sloppy drawing directly onto the designated token conventions:
-     {style_instruction}
-   - Use clean modern Tailwind conventions (rounded-xl or rounded-2xl, border-slate-800, accessible color contrast).
-   - Use standard HTML5 syntax with `class="..."` (NEVER `className=`).
-   - Use Lucide icon tags where appropriate: `<i data-lucide="mail"></i>`, `<i data-lucide="lock"></i>`, `<i data-lucide="arrow-right"></i>`, `<i data-lucide="activity"></i>`, `<i data-lucide="check"></i>`, etc.
-   - If avatars or preview images are depicted, use clean placeholders like `https://avatar.iran.liara.run/public` or `https://picsum.photos/400/250`.
-
-3. REAL-TIME INTERACTION SIMULATION (Live Micro-App Behavior):
-   - Include a concise, self-contained inline `<script>` at the bottom of the HTML.
-   - Wire up click/submit events on buttons and inputs so the prototype behaves like a working micro-app (e.g., clicking a button or submitting a form triggers a floating toast alert or active state toggle).
-   - Include a built-in toast element and showToast(message) helper function.
-   - Call `if (window.lucide) window.lucide.createIcons();` in the script.
-
-4. OUTPUT FORMAT:
-   - Pure, self-contained HTML starting with `<div class="min-h-screen...` and ending with `</div>`.
-   - Do NOT wrap in markdown fences (no ```html).
-   - Do NOT write conversational explanations or commentary.
-"""
+    prompt = build_sketch_prompt(style)
 
     active_client = client or genai.Client(api_key=api_key)
     models_to_try = [TARGET_MODEL, FALLBACK_MODEL]
@@ -603,6 +629,216 @@ DO NOT attempt to literally copy sloppy hand-drawn lines, crooked borders, or tr
             "is_backup": True,
             "intent_analysis": build_intent_analysis(style, fallback_code),
             "warning": f"AI model call failed ({str(last_error)}). Loaded backup demo sample automatically.",
+        },
+    )
+
+
+@app.post("/api/stream-convert")
+async def stream_convert_wireframe(
+    file: Optional[UploadFile] = File(None),
+    style: str = Form("shadcn"),
+    use_backup: bool = Form(False),
+    sample_type: Optional[str] = Form("napkin"),
+):
+    """
+    Server-Sent Events (SSE) endpoint to stream Gemma 4 UI code token-by-token.
+    """
+    async def event_generator():
+        code_choice = WHITEBOARD_SAAS_CODE if sample_type == "whiteboard" else NAPKIN_AUTH_CODE
+
+        if use_backup or file is None or not api_key:
+            # Stream backup sample smoothly for instant demos
+            chunk_size = 60
+            for i in range(0, len(code_choice), chunk_size):
+                chunk = code_choice[i : i + chunk_size]
+                yield f"data: {json.dumps({'type': 'chunk', 'text': chunk})}\n\n"
+                await asyncio.sleep(0.015)
+            yield f"data: {json.dumps({'type': 'done', 'code': code_choice, 'model': 'backup-sample-cached', 'is_backup': True})}\n\n"
+            return
+
+        try:
+            contents = await file.read()
+            image = Image.open(io.BytesIO(contents))
+            if image.mode != "RGB":
+                image = image.convert("RGB")
+            image.thumbnail((1024, 1024))
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'detail': f'Invalid image: {str(e)}'})}\n\n"
+            return
+
+        prompt = build_sketch_prompt(style)
+
+        active_client = client or genai.Client(api_key=api_key)
+        models_to_try = [TARGET_MODEL, FALLBACK_MODEL]
+        last_error = None
+
+        for model_name in models_to_try:
+            try:
+                print(f"Streaming model: {model_name}...")
+                stream = active_client.models.generate_content_stream(
+                    model=model_name,
+                    contents=[prompt, image],
+                )
+                full_raw = []
+                for chunk in stream:
+                    if chunk.text:
+                        full_raw.append(chunk.text)
+                        yield f"data: {json.dumps({'type': 'chunk', 'text': chunk.text})}\n\n"
+                        await asyncio.sleep(0.001)
+
+                full_text = "".join(full_raw)
+                clean_code = clean_generated_code(full_text)
+                yield f"data: {json.dumps({'type': 'done', 'code': clean_code, 'model': model_name, 'is_backup': False})}\n\n"
+                return
+            except Exception as err:
+                print(f"Streaming error on {model_name}: {err}")
+                last_error = err
+                continue
+
+        # If both fail, send fallback
+        yield f"data: {json.dumps({'type': 'done', 'code': code_choice, 'model': 'fallback-safe', 'is_backup': True, 'warning': str(last_error)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/api/refine")
+async def refine_ui(
+    previous_code: str = Form(...),
+    instruction: str = Form(...),
+    style: str = Form("shadcn"),
+):
+    """
+    Multi-turn conversational UI refinement with Gemma 4.
+    Takes existing component code and user instruction, and outputs refined UI component.
+    """
+    if not api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="GEMINI_API_KEY is not configured on the backend server.",
+        )
+
+    style_instruction = STYLE_PROMPTS.get(style, STYLE_PROMPTS["shadcn"])
+    prompt = f"""You are an elite React and Tailwind CSS UI Engineer.
+You are given the following existing web UI component markup:
+{previous_code}
+
+The user requests the following modification / refinement:
+"{instruction}"
+
+Requirements:
+1. Apply the user's requested changes directly and faithfully.
+2. Maintain the design system aesthetic: {style_instruction}
+3. Preserve existing structural containers, form fields, navigation, and responsiveness unless explicitly asked to modify or replace them.
+4. Maintain or enhance interactive states (hover/focus rings, active buttons, inline toast notification triggers, Lucide icon tags).
+5. Output ONLY the complete, self-contained HTML markup starting with <div class="min-h-screen... and ending with </div>.
+6. Do NOT include markdown code fences (no ```html), do NOT write conversational explanations.
+"""
+
+    active_client = client or genai.Client(api_key=api_key)
+    models_to_try = [TARGET_MODEL, FALLBACK_MODEL]
+    last_error = None
+
+    for model_name in models_to_try:
+        try:
+            print(f"Refining with model: {model_name}...")
+            response = active_client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+            )
+            raw_code = response.text or ""
+            clean_code = clean_generated_code(raw_code)
+            return {
+                "code": clean_code,
+                "model": model_name,
+                "style": style,
+                "is_backup": False,
+            }
+        except Exception as err:
+            print(f"Error refining with {model_name}: {err}")
+            last_error = err
+            continue
+
+    raise HTTPException(
+        status_code=500,
+        detail=f"Failed to refine UI with Gemma 4: {str(last_error)}",
+    )
+
+
+@app.post("/api/stream-refine")
+async def stream_refine_ui(
+    previous_code: str = Form(...),
+    instruction: str = Form(...),
+    style: str = Form("shadcn"),
+):
+    """
+    Streaming multi-turn refinement endpoint using Server-Sent Events (SSE).
+    """
+    async def event_generator():
+        if not api_key:
+            yield f"data: {json.dumps({'type': 'error', 'detail': 'GEMINI_API_KEY is not configured.'})}\n\n"
+            return
+
+        style_instruction = STYLE_PROMPTS.get(style, STYLE_PROMPTS["shadcn"])
+        prompt = f"""You are an elite React and Tailwind CSS UI Engineer.
+You are given the following existing web UI component markup:
+{previous_code}
+
+The user requests the following modification / refinement:
+"{instruction}"
+
+Requirements:
+1. Apply the user's requested changes directly and faithfully.
+2. Maintain the design system aesthetic: {style_instruction}
+3. Preserve existing structural containers, form fields, navigation, and responsiveness unless explicitly asked to modify or replace them.
+4. Maintain or enhance interactive states (hover/focus rings, active buttons, inline toast notification triggers, Lucide icon tags).
+5. Output ONLY the complete, self-contained HTML markup starting with <div class="min-h-screen... and ending with </div>.
+6. Do NOT include markdown code fences (no ```html), do NOT write conversational explanations.
+"""
+
+        active_client = client or genai.Client(api_key=api_key)
+        models_to_try = [TARGET_MODEL, FALLBACK_MODEL]
+        last_error = None
+
+        for model_name in models_to_try:
+            try:
+                print(f"Streaming refinement with: {model_name}...")
+                stream = active_client.models.generate_content_stream(
+                    model=model_name,
+                    contents=prompt,
+                )
+                full_raw = []
+                for chunk in stream:
+                    if chunk.text:
+                        full_raw.append(chunk.text)
+                        yield f"data: {json.dumps({'type': 'chunk', 'text': chunk.text})}\n\n"
+                        await asyncio.sleep(0.001)
+
+                full_text = "".join(full_raw)
+                clean_code = clean_generated_code(full_text)
+                yield f"data: {json.dumps({'type': 'done', 'code': clean_code, 'model': model_name, 'is_backup': False})}\n\n"
+                return
+            except Exception as err:
+                print(f"Error streaming refinement with {model_name}: {err}")
+                last_error = err
+                continue
+
+        yield f"data: {json.dumps({'type': 'error', 'detail': f'Refinement failed: {str(last_error)}'})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
         },
     )
 
