@@ -1,3 +1,22 @@
+#RUN commands
+1.git clone <this repo url>
+2.cd Imagine-frame
+3.open two terminals in the same directory
+terminal 1:
+1.cd backend
+2.python -m venv venv
+3..\venv\Scripts\activate
+4.pip install -r requirements.txt
+5.uvicorn main:app --reload --port 8000
+
+terminal 2:
+1.cd frontend
+2.npm install
+3.npm run dev
+**for developer**
+backend: .\backend\venv\Scripts\python -m uvicorn backend.main:app --reload --port 8000
+frontend: npm run dev
+
 # ImagineFrame (Wire2React)
 
 > **Transform rough sketches, paper napkins, and whiteboard wireframes into live, interactive, and beautifully styled React + Tailwind CSS components in seconds.**
@@ -103,124 +122,8 @@ Instantly apply curated design system presets with a single click:
 
 ---
 
-## Project Structure
 
-```text
-Imagine-frame/
-├── backend/
-│   ├── requirements.txt      # Python dependencies (FastAPI, google-genai, pillow, uvicorn)
-│   ├── main.py               # FastAPI application, Gemma 4 endpoints, prompt logic
-│   ├── test_gemma.py         # Connectivity test for Gemma 4 model endpoints
-│   ├── test_convert.py       # End-to-end API test script
-│   └── .env                  # API keys and environment variables (ignored by Git)
-├── frontend/
-│   ├── package.json          # Node dependencies and scripts
-│   ├── vite.config.ts        # Vite dev server configuration
-│   ├── tailwind.config.js    # Tailwind CSS styling configuration
-│   ├── index.html            # Main HTML entry with typography links
-│   └── src/
-│       ├── App.tsx           # Main application state, layout, and orchestration
-│       ├── components/
-│       │   ├── CanvasDrawer.tsx  # Whiteboard drawing board & UI Stencils
-│       │   ├── CameraSnap.tsx    # Webcam capture interface
-│       │   ├── Uploader.tsx      # File upload & benchmark sample selector
-│       │   ├── LivePreview.tsx   # Sandbox iframe, viewport controls, and theme switch
-│       │   └── CodeViewer.tsx    # TSX/HTML syntax view, export, and Lucide parser
-│       ├── index.css         # Global design tokens
-│       └── main.tsx          # React application root
-└── demo_assets/              # Sample wireframes for quick testing
-```
 
----
-
-## Getting Started
-
-### Prerequisites
-* **Node.js** (v18 or higher) and `npm`
-* **Python** (v3.10 or higher)
-* A **Gemini API Key** (from [Google AI Studio](https://aistudio.google.com/)) with access to Gemma 4 models.
-
----
-
-### 1. Backend Setup
-
-1. Navigate to the `backend` directory:
-   ```bash
-   cd backend
-   ```
-
-2. Create and activate a Python virtual environment:
-   * **Windows (PowerShell)**:
-     ```powershell
-     python -m venv venv
-     .\venv\Scripts\Activate.ps1
-     ```
-   * **macOS / Linux**:
-     ```bash
-     python3 -m venv venv
-     source venv/bin/activate
-     ```
-
-3. Install required packages:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. Create a `.env` file in the `backend/` folder and add your Gemini API key:
-   ```env
-   GEMINI_API_KEY=your_gemini_api_key_here
-   ```
-
-5. (Optional) Verify model connectivity:
-   ```bash
-   python test_gemma.py
-   ```
-
-6. Start the FastAPI server:
-   ```bash
-   python -m uvicorn main:app --reload --port 8000
-   ```
-   * The API will be accessible at: `http://localhost:8000`
-   * Interactive Swagger documentation: `http://localhost:8000/docs`
-
----
-
-### 2. Frontend Setup
-
-1. Open a new terminal tab and navigate to the `frontend` directory:
-   ```bash
-   cd frontend
-   ```
-
-2. Install Node dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Start the Vite development server:
-   ```bash
-   npm run dev
-   ```
-   * The web application will be accessible at: `http://localhost:5173`
-
----
-
-## Usage Workflow
-
-1. **Provide a Wireframe**:
-   * **Draw**: Switch to the **Draw** tab to sketch by hand or click the **Wireframe Stencils** (`+ Navbar`, `+ Card`, `+ Button`, etc.) to stamp standard elements.
-   * **Snap**: Switch to the **Snap** tab to take a picture of a paper sketch or whiteboard with your webcam.
-   * **Upload**: Drag and drop an image file, or click one of the benchmark samples.
-2. **Select a Design System**:
-   * Pick an aesthetic: **Shadcn/UI Modern**, **Tailwind Clean**, **Material Accent**, or **Dark Cyberpunk**.
-3. **Synthesize**:
-   * Click **Synthesize Live React UI**. Gemma 4 will analyze your wireframe and stream the generated component.
-4. **Iterate & Refine**:
-   * Under the preview, use the **Multi-Turn UI Refinement** bar to request tweaks (e.g. *"Change the color palette to emerald and add a pricing table"*).
-5. **Inspect & Export Code**:
-   * Click the **JSX / TSX Export** tab to view the production React component with Lucide imports or download the file directly.
-
----
 
 ## License
 
